@@ -1,0 +1,1 @@
+This is an ansible project to configure a linux host with various IOT Edge applications and SNAT. 

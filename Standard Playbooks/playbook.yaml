@@ -1,0 +1,142 @@
+- name: Configure Iptables Rules
+  hosts: Micros
+  become: yes # This playbook requires root privileges
+
+  tasks:
+    - name: Install netfilter-persistent
+      ansible.builtin.apt:
+        name: netfilter-persistent
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Enable IPv4 forwarding
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        state: present
+        reload: yes
+
+    - name: Flush existing iptables rules (optional, use with caution in production)
+      ansible.builtin.iptables:
+        flush: yes
+        chain: "{{ item.chain }}"  # Access the 'chain' key from the current dictionary item
+        table: "{{ item.table | default('filter') }}" # Access 'table' or default to 'filter'
+      loop: # Use 'loop' directly with the list of dictionaries
+        - { chain: INPUT }
+        - { chain: FORWARD }
+        - { chain: OUTPUT }
+        - { chain: PREROUTING, table: nat }
+        - { chain: POSTROUTING, table: nat }
+        - { chain: OUTPUT, table: nat }
+        - { chain: PREROUTING, table: mangle }
+        - { chain: INPUT, table: mangle }
+        - { chain: FORWARD, table: mangle }
+        - { chain: OUTPUT, table: mangle }
+        - { chain: POSTROUTING, table: mangle }
+
+    - name: Allow SSH from WAN ({{ wan_interface }})
+      ansible.builtin.iptables:
+        chain: INPUT
+        in_interface: "{{ wan_interface }}"
+        protocol: tcp
+        destination_port: "{{ ssh_port }}"
+        ctstate: NEW
+        jump: ACCEPT
+        state: present
+
+    - name: Allow SSH from LAN ({{ lan_interface }})
+      ansible.builtin.iptables:
+        chain: INPUT
+        in_interface: "{{ lan_interface }}"
+        protocol: tcp
+        destination_port: "{{ ssh_port }}"
+        ctstate: NEW
+        jump: ACCEPT
+        state: present
+
+    - name: Set default iptables policies
+      ansible.builtin.iptables:
+        chain: "{{ item.chain }}"
+        policy: "{{ item.policy }}"
+        state: present
+      loop:
+        - { chain: INPUT, policy: DROP }
+        - { chain: FORWARD, policy: DROP }
+        - { chain: OUTPUT, policy: ACCEPT }
+
+    - name: Allow established and related connections
+      ansible.builtin.iptables:
+        chain: "{{ item }}"
+        ctstate: RELATED,ESTABLISHED
+        jump: ACCEPT
+        state: present
+      loop:
+        - INPUT
+        - FORWARD
+
+    - name: Allow loopback interface traffic
+      ansible.builtin.iptables:
+        chain: "{{ item.chain }}"
+        in_interface: "{{ item.interface }}"
+        out_interface: "{{ item.interface }}"
+        jump: ACCEPT
+        state: present
+      loop:
+        - { chain: INPUT, interface: lo }
+        - { chain: OUTPUT, interface: lo }
+
+    - name: Allow ICMP (ping) requests
+      ansible.builtin.iptables:
+        chain: INPUT
+        protocol: icmp
+        icmp_type: echo-request
+        jump: ACCEPT
+        state: present
+
+    - name: Allow LAN to WAN forwarding
+      ansible.builtin.iptables:
+        chain: FORWARD
+        in_interface: "{{ lan_interface }}"
+        out_interface: "{{ wan_interface }}"
+        jump: ACCEPT
+        state: present
+
+    - name: Enable SNAT (Masquerade) for WAN traffic
+      ansible.builtin.iptables:
+        table: nat
+        chain: POSTROUTING
+        out_interface: "{{ wan_interface }}"
+        jump: MASQUERADE
+        state: present
+
+    # - name: Log and Drop INPUT (uncomment to enable)
+    #   ansible.builtin.iptables:
+    #     chain: INPUT
+    #     log_prefix: "IPTABLES_DROP_INPUT: "
+    #     jump: LOG
+    #     state: present
+    # - name: Drop remaining INPUT traffic (uncomment to enable)
+    #   ansible.builtin.iptables:
+    #     chain: INPUT
+    #     jump: DROP
+    #     state: present
+
+    # - name: Log and Drop FORWARD (uncomment to enable)
+    #   ansible.builtin.iptables:
+    #     chain: FORWARD
+    #     log_prefix: "IPTABLES_DROP_FORWARD: "
+    #     jump: LOG
+    #     state: present
+    # - name: Drop remaining FORWARD traffic (uncomment to enable)
+    #   ansible.builtin.iptables:
+    #     chain: FORWARD
+    #     jump: DROP
+    #     state: present
+
+    - name: Save iptables rules (for persistence across reboots)
+      ansible.builtin.command: "{{ item }}"
+      loop:
+        - "iptables-save > /etc/sysconfig/iptables" # For RHEL/CentOS
+        - "netfilter-persistent save" # For Debian/Ubuntu (requires 'netfilter-persistent' package)
+      when: ansible_os_family == "RedHat" or ansible_os_family == "Debian"
+      ignore_errors: yes # Ignore errors if one save command fails on a different OS
