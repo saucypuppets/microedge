@@ -16,6 +16,12 @@
         state: present
         reload: yes
 
+    - name: Set default iptables policies
+      ansible.builtin.iptables:
+        chain: INPUT
+        policy: ACCEPT
+        state: present
+
     - name: Flush existing iptables rules (optional, use with caution in production)
       ansible.builtin.iptables:
         flush: yes
