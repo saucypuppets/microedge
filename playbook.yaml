@@ -40,16 +40,6 @@
         jump: ACCEPT
         state: present
 
-    - name: Set default iptables policies
-      ansible.builtin.iptables:
-        chain: "{{ item.chain }}"
-        policy: "{{ item.policy }}"
-        state: present
-      loop:
-        - { chain: INPUT, policy: DROP }
-        - { chain: FORWARD, policy: DROP }
-        - { chain: OUTPUT, policy: ACCEPT }
-
     - name: Allow established and related connections
       ansible.builtin.iptables:
         chain: "{{ item }}"
@@ -95,6 +85,16 @@
         jump: MASQUERADE
         state: present
 
+    - name: Set default iptables policies
+      ansible.builtin.iptables:
+        chain: "{{ item.chain }}"
+        policy: "{{ item.policy }}"
+        state: present
+      loop:
+        - { chain: INPUT, policy: DROP }
+        - { chain: FORWARD, policy: DROP }
+        - { chain: OUTPUT, policy: ACCEPT }
+        
     # - name: Log and Drop INPUT (uncomment to enable)
     #   ansible.builtin.iptables:
     #     chain: INPUT
