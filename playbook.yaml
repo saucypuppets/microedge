@@ -3,9 +3,9 @@
   become: yes # This playbook requires root privileges
 
   tasks:
-    - name: Install netfilter-persistent
+    - name: Install iptables-persistent
       ansible.builtin.apt:
-        name: netfilter-persistent
+        name: iptables-persistent
         state: present
       when: ansible_os_family == "Debian"
 
@@ -126,10 +126,8 @@
     #     jump: DROP
     #     state: present
 
-    - name: Save iptables rules (for persistence across reboots)
-      ansible.builtin.command: "{{ item }}"
-      loop:
-        - "iptables-save > /etc/sysconfig/iptables" # For RHEL/CentOS
-        - "netfilter-persistent save" # For Debian/Ubuntu (requires 'netfilter-persistent' package)
+    - name: Save iptables rules
+      community.general.iptables_state:
+        path: /etc/iptables/rules.v4
+        state: saved
       when: ansible_os_family == "RedHat" or ansible_os_family == "Debian"
-      ignore_errors: yes # Ignore errors if one save command fails on a different OS
