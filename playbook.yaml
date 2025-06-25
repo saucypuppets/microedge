@@ -42,24 +42,31 @@
 
     - name: Allow established and related connections
       ansible.builtin.iptables:
-        chain: "{{ item }}"
+        chain: INPUT
         ctstate: RELATED,ESTABLISHED
         jump: ACCEPT
         state: present
-      loop:
-        - INPUT
-        - FORWARD
+
+    - name: Allow established and related connections
+      ansible.builtin.iptables:
+        chain: OUTPUT
+        ctstate: ESTABLISHED
+        jump: ACCEPT
+        state: present
 
     - name: Allow loopback interface traffic
       ansible.builtin.iptables:
-        chain: "{{ item.chain }}"
-        in_interface: "{{ item.interface }}"
-        out_interface: "{{ item.interface }}"
+        chain: INPUT
+        in_interface: lo
         jump: ACCEPT
         state: present
-      loop:
-        - { chain: INPUT, interface: lo }
-        - { chain: OUTPUT, interface: lo }
+
+    - name: Allow loopback interface traffic
+      ansible.builtin.iptables:
+        chain: OUTPUT
+        out_interface: lo
+        jump: ACCEPT
+        state: present
 
     - name: Allow ICMP (ping) requests
       ansible.builtin.iptables:
