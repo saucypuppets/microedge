@@ -1,8 +1,14 @@
 Micros:
   hosts:
     microedge1:
-      ansible_host: 192.168.1.238
+      ansible_host: 192.168.1.237
       ansible_user: admin
       lan_interface: enp1s0
       wan_interface: enp2s0
+      ssh_port: 22
+    microedge2:
+      ansible_host: 192.168.1.239
+      ansible_user: tobin
+      lan_interface: ens19
+      wan_interface: ens18
       ssh_port: 22
