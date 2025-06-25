@@ -177,7 +177,6 @@
       ansible.builtin.get_url:
         url: "{{ nozomi_container_source_http_protocol }}://{{ nozomi_container_source_http_server }}:{{ nozomi_container_source_http_port }}/{{ nozomi_container_source_http_path }}/{{ item.file }}"
         dest: "/tmp/{{ nozomi_container_source_http_path }}/{{ item.file }}"
-        state: present
       loop:
         - { file: "n2os-advanced_25.1.0_amd64.tbz2" }
         - { file: "n2os-port_test.log.tar.gz"}
