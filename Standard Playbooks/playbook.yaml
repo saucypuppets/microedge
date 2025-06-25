@@ -19,20 +19,6 @@
     - name: Flush existing iptables rules (optional, use with caution in production)
       ansible.builtin.iptables:
         flush: yes
-        chain: "{{ item.chain }}"  # Access the 'chain' key from the current dictionary item
-        table: "{{ item.table | default('filter') }}" # Access 'table' or default to 'filter'
-      loop: # Use 'loop' directly with the list of dictionaries
-        - { chain: INPUT }
-        - { chain: FORWARD }
-        - { chain: OUTPUT }
-        - { chain: PREROUTING, table: nat }
-        - { chain: POSTROUTING, table: nat }
-        - { chain: OUTPUT, table: nat }
-        - { chain: PREROUTING, table: mangle }
-        - { chain: INPUT, table: mangle }
-        - { chain: FORWARD, table: mangle }
-        - { chain: OUTPUT, table: mangle }
-        - { chain: POSTROUTING, table: mangle }
 
     - name: Allow SSH from WAN ({{ wan_interface }})
       ansible.builtin.iptables:
