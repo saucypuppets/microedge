@@ -1,10 +1,10 @@
 Micros:
   hosts:
     microedge1:
-      ansible_host: 192.168.1.237
+      ansible_host: 192.168.1.238
       lan_interface: enp1s0
       wan_interface: enp2s0
-    microedge2:
+    ansibletest:
       ansible_host: 192.168.1.239
       lan_interface: ens19
       wan_interface: ens18
