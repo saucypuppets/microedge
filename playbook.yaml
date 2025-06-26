@@ -100,7 +100,6 @@
         network_mode: host
         devices:
           - /dev/net/tun:/dev/net/tun
-        state: present
         
     # Configure Iptables Rules
 
