@@ -3,6 +3,117 @@
   become: yes # This playbook requires root privileges
 
   tasks:
+
+  
+    - name: Add Docker GPG apt Key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repos
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable"
+        state: present
+
+    - name: Update apt and install docker-ce
+      apt:
+        name: "{{ item.name }}"
+        state: latest
+        update_cache: true
+      loop:
+        - { name: docker-ce }
+        - { name: docker-ce-cli }
+        - { name: containerd.io }
+        - { name: docker-compose-plugin }
+        - { name: docker-buildx-plugin }
+    
+
+
+
+
+
+    - name: Create a Nozomi docker volume
+      community.docker.docker_volume:
+        name: nozomi
+        state: present
+
+    - name: Create directory for Nozomi Guardian Container files
+      ansible.builtin.file:
+        path: "/tmp/{{ nozomi_container_source_http_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Download Nozomi Guardian Container files
+      ansible.builtin.get_url:
+        url: "{{ nozomi_container_source_http_protocol }}://{{ nozomi_container_source_http_server }}:{{ nozomi_container_source_http_port }}/{{ nozomi_container_source_http_path }}/{{ item.file }}"
+        dest: "/tmp/{{ nozomi_container_source_http_path }}/{{ item.file }}"
+      loop:
+        - { file: "n2os-advanced_25.1.0_amd64.tbz2" }
+        - { file: "n2os-port_test.log.tar.gz"}
+        - { file: "product.txt" }
+        - { file: "version.txt" }
+        - { file: "Dockerfile" }
+        - { file: "install-nozomi-deps.sh" }
+        - { file: "install-prod-deps.sh" }
+        - { file: "LICENSE" }
+
+    - name: Restart Docker service
+      ansible.builtin.service:
+        name: docker
+        state: restarted
+
+    - name: Build Nozomi Guardian Docker image
+      community.docker.docker_image:
+        name: n2os
+        build:
+          path: /tmp/n2os-advanced_25.1.0_amd64
+          args:
+            N2OS_HTTP_PORT: "{{ n2os_http_port }}"
+            N2OS_HTTPS_PORT: "{{ n2os_https_port }}"
+        source: build
+        state: present
+
+    - name: Run Nozomi Guardian Container
+      community.docker.docker_container:
+        hostname: nozomi-sga
+        name: nozomi-sga
+        image: n2os
+        volumes:
+          - nozomi:/data
+        mounts:
+          - type: tmpfs
+            target: /var/sandbox
+            tmpfs_size: 400M
+          - type: tmpfs
+            target: /var/tmp_sandbox
+            tmpfs_size: 100M
+          - type: tmpfs
+            target: /var/pipes
+            tmpfs_size: 10M
+          - type: tmpfs
+            target: /var/traces
+            tmpfs_size: 400M
+          - type: tmpfs
+            target: /var/checksums
+            tmpfs_size: 25M
+        network_mode: host
+        devices:
+          - /dev/net/tun:/dev/net/tun
+        state: present
+        
+
+
+
+
+
+
+
+
+
+
+
+
+  
     - name: Install iptables-persistent
       ansible.builtin.apt:
         name: iptables-persistent
@@ -26,25 +137,29 @@
       ansible.builtin.iptables:
         flush: yes
 
-    - name: Allow SSH from WAN ({{ wan_interface }})
-      ansible.builtin.iptables:
-        chain: INPUT
-        in_interface: "{{ wan_interface }}"
-        protocol: tcp
-        destination_port: "{{ ssh_port }}"
-        ctstate: NEW
-        jump: ACCEPT
-        state: present
+    #- name: Allow inbound traffic to docker0
+    #  ansible.builtin.iptables:
+    #    chain: INPUT
+    #    in_interface: docker0
+    #    jump: ACCEPT
+    #    state: present
 
-    - name: Allow SSH from LAN ({{ lan_interface }})
+    - name: Allow TCP 
       ansible.builtin.iptables:
-        chain: INPUT
-        in_interface: "{{ lan_interface }}"
+        chain: "{{ item.chain }}"
+        in_interface: "{{ item.interface }}"
         protocol: tcp
-        destination_port: "{{ ssh_port }}"
+        destination_port: "{{ item.dstport }}"
         ctstate: NEW
         jump: ACCEPT
         state: present
+      loop:
+        - { chain: INPUT, interface: "{{ lan_interface }}", dstport: "{{ ssh_port }}" }
+        - { chain: INPUT, interface: "{{ wan_interface }}", dstport: "{{ ssh_port }}" }
+        - { chain: INPUT, interface: "{{ wan_interface }}", dstport: "{{ nozomin2os_http_port }}" }
+        - { chain: INPUT, interface: "{{ wan_interface }}", dstport: "{{ nozomin2os_https_port }}" }
+        - { chain: INPUT, interface: docker0, dstport: "{{ nozomin2os_http_port }}" }
+        - { chain: INPUT, interface: docker0, dstport: "{{ nozomin2os_https_port }}" }
 
     - name: Allow established and related connections
       ansible.builtin.iptables:
@@ -141,95 +256,4 @@
 
 
 
-    - name: Add Docker GPG apt Key
-      apt_key:
-        url: https://download.docker.com/linux/ubuntu/gpg
-        state: present
-
-    - name: Add Docker repos
-      ansible.builtin.apt_repository:
-        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable"
-        state: present
-
-    - name: Update apt and install docker-ce
-      apt:
-        name: "{{ item.name }}"
-        state: latest
-        update_cache: true
-      loop:
-        - { name: docker-ce }
-        - { name: docker-ce-cli }
-        - { name: containerd.io }
-        - { name: docker-compose-plugin }
-        - { name: docker-buildx-plugin }
     
-
-
-
-
-
-    - name: Create a Nozomi docker volume
-      community.docker.docker_volume:
-        name: nozomi
-        state: present
-
-    - name: Create directory for Nozomi Guardian Container files
-      ansible.builtin.file:
-        path: "/tmp/{{ nozomi_container_source_http_path }}"
-        state: directory
-        mode: '0755'
-
-    - name: Download Nozomi Guardian Container files
-      ansible.builtin.get_url:
-        url: "{{ nozomi_container_source_http_protocol }}://{{ nozomi_container_source_http_server }}:{{ nozomi_container_source_http_port }}/{{ nozomi_container_source_http_path }}/{{ item.file }}"
-        dest: "/tmp/{{ nozomi_container_source_http_path }}/{{ item.file }}"
-      loop:
-        - { file: "n2os-advanced_25.1.0_amd64.tbz2" }
-        - { file: "n2os-port_test.log.tar.gz"}
-        - { file: "product.txt" }
-        - { file: "version.txt" }
-        - { file: "Dockerfile" }
-        - { file: "install-nozomi-deps.sh" }
-        - { file: "install-prod-deps.sh" }
-        - { file: "LICENSE" }
-
-    - name: Build Nozomi Guardian Docker image
-      community.docker.docker_image:
-        name: n2os
-        build:
-          path: /tmp/n2os-advanced_25.1.0_amd64
-          args:
-            N2OS_HTTP_PORT: "{{ n2os_http_port }}"
-            N2OS_HTTPS_PORT: "{{ n2os_https_port }}"
-        source: build
-        state: present
-
-    - name: Run Nozomi Guardian Container
-      community.docker.docker_container:
-        hostname: nozomi-sga
-        name: nozomi-sga
-        image: n2os
-        volumes:
-          - nozomi:/data
-        mounts:
-          - type: tmpfs
-            target: /var/sandbox
-            tmpfs_size: 400M
-          - type: tmpfs
-            target: /var/tmp_sandbox
-            tmpfs_size: 100M
-          - type: tmpfs
-            target: /var/pipes
-            tmpfs_size: 10M
-          - type: tmpfs
-            target: /var/traces
-            tmpfs_size: 400M
-          - type: tmpfs
-            target: /var/checksums
-            tmpfs_size: 25M
-        network_mode: host
-        devices:
-          - /dev/net/tun:/dev/net/tun
-        state: present
-        
-        # Need to add --devices /dev/net/tun:/dev/net/tun, if that's right
