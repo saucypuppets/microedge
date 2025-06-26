@@ -4,7 +4,8 @@
 
   tasks:
 
-  
+  # Install Docker
+
     - name: Add Docker GPG apt Key
       apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
@@ -26,22 +27,24 @@
         - { name: containerd.io }
         - { name: docker-compose-plugin }
         - { name: docker-buildx-plugin }
-    
+  
+    - name: Restart Docker service
+      ansible.builtin.service:
+        name: docker
+        state: restarted
 
-
-
-
-
-    - name: Create a Nozomi docker volume
-      community.docker.docker_volume:
-        name: nozomi
-        state: present
+    #Build and Run Nozomi Guardian Container
 
     - name: Create directory for Nozomi Guardian Container files
       ansible.builtin.file:
         path: "/tmp/{{ nozomi_container_source_http_path }}"
         state: directory
         mode: '0755'
+
+    - name: Create a Nozomi docker volume
+      community.docker.docker_volume:
+        name: nozomi
+        state: present
 
     - name: Download Nozomi Guardian Container files
       ansible.builtin.get_url:
@@ -57,19 +60,14 @@
         - { file: "install-prod-deps.sh" }
         - { file: "LICENSE" }
 
-    - name: Restart Docker service
-      ansible.builtin.service:
-        name: docker
-        state: restarted
-
     - name: Build Nozomi Guardian Docker image
       community.docker.docker_image:
         name: n2os
         build:
-          path: /tmp/n2os-advanced_25.1.0_amd64
-          args:
-            N2OS_HTTP_PORT: "{{ n2os_http_port }}"
-            N2OS_HTTPS_PORT: "{{ n2os_https_port }}"
+          path: "/tmp/{{ nozomi_container_source_http_path }}"
+          #-args:
+          #  N2OS_HTTP_PORT: "{{ n2os_http_port }}"
+          #  N2OS_HTTPS_PORT: "{{ n2os_https_port }}"
         source: build
         state: present
 
@@ -101,31 +99,7 @@
           - /dev/net/tun:/dev/net/tun
         state: present
         
-
-
-
-
-
-
-
-
-
-
-
-
-  
-    - name: Install iptables-persistent
-      ansible.builtin.apt:
-        name: iptables-persistent
-        state: present
-      when: ansible_os_family == "Debian"
-
-    - name: Enable IPv4 forwarding
-      ansible.posix.sysctl:
-        name: net.ipv4.ip_forward
-        value: '1'
-        state: present
-        reload: yes
+    # Configure Iptables Rules
 
     - name: Set default iptables policies
       ansible.builtin.iptables:
@@ -143,6 +117,14 @@
     #    in_interface: docker0
     #    jump: ACCEPT
     #    state: present
+
+    - name: Allow ICMP (ping) requests
+      ansible.builtin.iptables:
+        chain: INPUT
+        protocol: icmp
+        icmp_type: echo-request
+        jump: ACCEPT
+        state: present
 
     - name: Allow TCP 
       ansible.builtin.iptables:
@@ -189,13 +171,12 @@
         jump: ACCEPT
         state: present
 
-    - name: Allow ICMP (ping) requests
-      ansible.builtin.iptables:
-        chain: INPUT
-        protocol: icmp
-        icmp_type: echo-request
-        jump: ACCEPT
+    - name: Enable IPv4 forwarding
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
         state: present
+        reload: yes
 
     - name: Allow LAN to WAN forwarding
       ansible.builtin.iptables:
@@ -246,6 +227,12 @@
     #     chain: FORWARD
     #     jump: DROP
     #     state: present
+
+    - name: Install iptables-persistent
+      ansible.builtin.apt:
+        name: iptables-persistent
+        state: present
+      when: ansible_os_family == "Debian"
 
     - name: Save iptables rules
       community.general.iptables_state:
