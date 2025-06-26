@@ -63,11 +63,10 @@
     - name: Build Nozomi Guardian Docker image
       community.docker.docker_image_build:
         name: n2os
-        build:
-          path: "/tmp/{{ nozomi_container_source_http_path }}"
-          -args:
-            N2OS_HTTP_PORT: "{{ n2os_http_port }}"
-            N2OS_HTTPS_PORT: "{{ n2os_https_port }}"
+        path: "/tmp/{{ nozomi_container_source_http_path }}"
+        args:
+          N2OS_HTTP_PORT: "{{ n2os_http_port }}"
+          N2OS_HTTPS_PORT: "{{ n2os_https_port }}"
         #source: build
         #state: present
 
