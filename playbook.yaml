@@ -137,10 +137,15 @@
       loop:
         - { chain: INPUT, interface: "{{ lan_interface }}", dstport: "{{ ssh_port }}" }
         - { chain: INPUT, interface: "{{ wan_interface }}", dstport: "{{ ssh_port }}" }
-        - { chain: INPUT, interface: "{{ wan_interface }}", dstport: "{{ n2os_http_port }}" }
-        - { chain: INPUT, interface: "{{ wan_interface }}", dstport: "{{ n2os_https_port }}" }
-        - { chain: INPUT, interface: docker0, dstport: "{{ n2os_http_port }}" }
-        - { chain: INPUT, interface: docker0, dstport: "{{ n2os_https_port }}" }
+      #  - { chain: INPUT, interface: "{{ wan_interface }}", dstport: "{{ n2os_http_port }}" }
+      #  - { chain: INPUT, interface: "{{ wan_interface }}", dstport: "{{ n2os_https_port }}" }
+
+    - name: Docker
+      ansible.builtin.iptables:
+        chain: INPUT
+        in_interface: docker0
+        jump: ACCEPT
+        state: present
 
     - name: Allow established and related connections
       ansible.builtin.iptables:
