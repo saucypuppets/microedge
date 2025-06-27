@@ -100,7 +100,38 @@
         network_mode: host
         devices:
           - /dev/net/tun:/dev/net/tun
-        
+        restart_policy: "always"
+  
+
+    # Install OpenVPN container
+
+    - name: Pull OpenVPN Docker image
+      community.docker.docker_image:
+        name: openvpn/openvpn-as
+        source: pull
+
+    - name: Create a OpenVPN docker volume
+      community.docker.docker_volume:
+        name: OpenVPN
+        state: present
+
+    - name: Run OpenVPN Docker image
+    community.docker.docker_container:
+        name: openvpn-as
+        image: openvpn/openvpn-as
+        restart_policy: "always"
+        ports:
+          - "943:20943"
+          - "443:20443"
+          - "1194:21194/udp"
+        devices:
+          - /dev/net/tun:/dev/net/tun
+        cap_add:
+          - MKNOD
+          - NET_ADMIN
+        volumes:
+          - "OpenVPN:/openvpn"
+
     # Configure Iptables Rules
 
     - name: Set default iptables policies
@@ -113,13 +144,6 @@
       ansible.builtin.iptables:
         flush: yes
 
-    #- name: Allow inbound traffic to docker0
-    #  ansible.builtin.iptables:
-    #    chain: INPUT
-    #    in_interface: docker0
-    #    jump: ACCEPT
-    #    state: present
-
     - name: Allow ICMP (ping) requests
       ansible.builtin.iptables:
         chain: INPUT
@@ -127,21 +151,6 @@
         icmp_type: echo-request
         jump: ACCEPT
         state: present
-
-    #- name: Allow TCP 
-    #  ansible.builtin.iptables:
-    #    chain: "{{ item.chain }}"
-    #    in_interface: "{{ item.interface }}"
-    #    protocol: tcp
-    #    destination_port: "{{ item.dstport }}"
-    #    ctstate: NEW
-    #    jump: ACCEPT
-    #    state: present
-    #  loop:
-    #    - { chain: INPUT, interface: "{{ lan_interface }}", dstport: "{{ ssh_port }}" }
-    #    - { chain: INPUT, interface: "{{ wan_interface }}", dstport: "{{ ssh_port }}" }
-    #    - { chain: INPUT, interface: "{{ wan_interface }}", dstport: "{{ n2os_http_port }}" }
-    #   - { chain: INPUT, interface: "{{ wan_interface }}", dstport: "{{ n2os_https_port }}" }
 
     - name: Allow TCP traffic on SSH and HTTP/S port
       ansible.builtin.iptables:
@@ -170,28 +179,12 @@
         jump: ACCEPT
         state: present
 
-    # This should already be allowed by output chain ACCEPT
-    #- name: Allow established and related connections
-    #  ansible.builtin.iptables:
-    #    chain: OUTPUT
-    #    ctstate: ESTABLISHED
-    #    jump: ACCEPT
-    #    state: present
-
     - name: Allow loopback interface traffic
       ansible.builtin.iptables:
         chain: INPUT
         in_interface: lo
         jump: ACCEPT
         state: present
-
-    # This should already be allowed by output chain ACCEPT
-    #- name: Allow loopback interface traffic
-    #  ansible.builtin.iptables:
-    #    chain: OUTPUT
-    #    out_interface: lo
-    #    jump: ACCEPT
-    #    state: present
 
     - name: Enable IPv4 forwarding
       ansible.posix.sysctl:
@@ -233,30 +226,6 @@
         - { chain: FORWARD, policy: DROP }
         - { chain: OUTPUT, policy: ACCEPT }
         
-    # - name: Log and Drop INPUT (uncomment to enable)
-    #   ansible.builtin.iptables:
-    #     chain: INPUT
-    #     log_prefix: "IPTABLES_DROP_INPUT: "
-    #     jump: LOG
-    #     state: present
-    # - name: Drop remaining INPUT traffic (uncomment to enable)
-    #   ansible.builtin.iptables:
-    #     chain: INPUT
-    #     jump: DROP
-    #     state: present
-
-    # - name: Log and Drop FORWARD (uncomment to enable)
-    #   ansible.builtin.iptables:
-    #     chain: FORWARD
-    #     log_prefix: "IPTABLES_DROP_FORWARD: "
-    #     jump: LOG
-    #     state: present
-    # - name: Drop remaining FORWARD traffic (uncomment to enable)
-    #   ansible.builtin.iptables:
-    #     chain: FORWARD
-    #     jump: DROP
-    #     state: present
-
     - name: Install iptables-persistent
       ansible.builtin.apt:
         name: iptables-persistent
