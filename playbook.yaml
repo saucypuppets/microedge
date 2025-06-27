@@ -126,7 +126,7 @@
           - "1194:21194/udp"
         devices:
           - /dev/net/tun:/dev/net/tun
-        cap_add:
+        capabilities:
           - MKNOD
           - NET_ADMIN
         volumes:
