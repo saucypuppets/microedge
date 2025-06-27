@@ -164,6 +164,7 @@
         - { dstport: "{{ ssh_port }}" }
         - { dstport: "{{ n2os_http_port }}" }
         - { dstport: "{{ n2os_https_port }}" }
+        - { dstport: "20943" }
 
     - name: Docker host network allow firewall
       ansible.builtin.iptables:
