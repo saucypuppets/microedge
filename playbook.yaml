@@ -121,9 +121,9 @@
         image: openvpn/openvpn-as
         restart_policy: "always"
         ports:
-          - "943:20943"
-          - "443:20443"
-          - "1194:21194/udp"
+          - "20943:943"
+          - "20443:443"
+          - "21194:1194/udp"
         devices:
           - /dev/net/tun:/dev/net/tun
         capabilities:
@@ -165,6 +165,16 @@
         - { dstport: "{{ n2os_http_port }}" }
         - { dstport: "{{ n2os_https_port }}" }
         - { dstport: "20943" }
+        - { dstport: "20443" }
+
+    - name: Allow UDP traffic on OpenVPN port
+      ansible.builtin.iptables:
+        chain: INPUT
+        protocol: udp
+        destination_port: 21194
+        ctstate: NEW,ESTABLISHED
+        jump: ACCEPT
+        state: present
 
     - name: Docker host network allow firewall
       ansible.builtin.iptables:
