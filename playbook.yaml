@@ -116,7 +116,7 @@
         state: present
 
     - name: Run OpenVPN Docker image
-    community.docker.docker_container:
+      community.docker.docker_container:
         name: openvpn-as
         image: openvpn/openvpn-as
         restart_policy: "always"
