@@ -128,20 +128,33 @@
         jump: ACCEPT
         state: present
 
-    - name: Allow TCP 
+    #- name: Allow TCP 
+    #  ansible.builtin.iptables:
+    #    chain: "{{ item.chain }}"
+    #    in_interface: "{{ item.interface }}"
+    #    protocol: tcp
+    #    destination_port: "{{ item.dstport }}"
+    #    ctstate: NEW
+    #    jump: ACCEPT
+    #    state: present
+    #  loop:
+    #    - { chain: INPUT, interface: "{{ lan_interface }}", dstport: "{{ ssh_port }}" }
+    #    - { chain: INPUT, interface: "{{ wan_interface }}", dstport: "{{ ssh_port }}" }
+    #    - { chain: INPUT, interface: "{{ wan_interface }}", dstport: "{{ n2os_http_port }}" }
+    #   - { chain: INPUT, interface: "{{ wan_interface }}", dstport: "{{ n2os_https_port }}" }
+
+    - name: Allow TCP traffic on SSH and HTTP/S port
       ansible.builtin.iptables:
-        chain: "{{ item.chain }}"
-        in_interface: "{{ item.interface }}"
+        chain: INPUT
         protocol: tcp
         destination_port: "{{ item.dstport }}"
-        ctstate: NEW
+        ctstate: NEW,ESTABLISHED
         jump: ACCEPT
         state: present
       loop:
-        - { chain: INPUT, interface: "{{ lan_interface }}", dstport: "{{ ssh_port }}" }
-        - { chain: INPUT, interface: "{{ wan_interface }}", dstport: "{{ ssh_port }}" }
-        - { chain: INPUT, interface: "{{ wan_interface }}", dstport: "{{ n2os_http_port }}" }
-        - { chain: INPUT, interface: "{{ wan_interface }}", dstport: "{{ n2os_https_port }}" }
+        - { dstport: "{{ ssh_port }}" }
+        - { dstport: "{{ n2os_http_port }}" }
+        - { dstport: "{{ n2os_https_port }}" }
 
     - name: Docker host network allow firewall
       ansible.builtin.iptables:
@@ -157,12 +170,13 @@
         jump: ACCEPT
         state: present
 
-    - name: Allow established and related connections
-      ansible.builtin.iptables:
-        chain: OUTPUT
-        ctstate: ESTABLISHED
-        jump: ACCEPT
-        state: present
+    # This should already be allowed by output chain ACCEPT
+    #- name: Allow established and related connections
+    #  ansible.builtin.iptables:
+    #    chain: OUTPUT
+    #    ctstate: ESTABLISHED
+    #    jump: ACCEPT
+    #    state: present
 
     - name: Allow loopback interface traffic
       ansible.builtin.iptables:
@@ -171,12 +185,13 @@
         jump: ACCEPT
         state: present
 
-    - name: Allow loopback interface traffic
-      ansible.builtin.iptables:
-        chain: OUTPUT
-        out_interface: lo
-        jump: ACCEPT
-        state: present
+    # This should already be allowed by output chain ACCEPT
+    #- name: Allow loopback interface traffic
+    #  ansible.builtin.iptables:
+    #    chain: OUTPUT
+    #    out_interface: lo
+    #    jump: ACCEPT
+    #    state: present
 
     - name: Enable IPv4 forwarding
       ansible.posix.sysctl:
@@ -199,6 +214,13 @@
         chain: POSTROUTING
         out_interface: "{{ wan_interface }}"
         jump: MASQUERADE
+        state: present
+
+    - name: Drop invalid packets
+      ansible.builtin.iptables:
+        chain: INPUT
+        ctstate: INVALID
+        jump: DROP
         state: present
 
     - name: Set default iptables policies

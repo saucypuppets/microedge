@@ -10,8 +10,8 @@ Micros:
       wan_interface: ens18
   vars:
     ansible_user: admin
-    n2os_http_port: 1080
-    n2os_https_port: 10443
+    n2os_http_port: 80
+    n2os_https_port: 443
     ssh_port: 22
     nozomi_container_source_http_protocol: http
     nozomi_container_source_http_server: 192.168.1.237
