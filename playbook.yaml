@@ -49,7 +49,7 @@
     - name: Check if Docker image exists
       community.docker.docker_image_info:
         name: "n2os" 
-        register: docker_image_status
+      register: docker_image_status
 
     - name: Download Nozomi Guardian Container files
       when: docker_image_status.images | length == 0
