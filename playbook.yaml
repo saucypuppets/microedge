@@ -46,7 +46,13 @@
         name: nozomi
         state: present
 
+    - name: Check if Docker image exists
+      community.docker.docker_image_info:
+        name: "n2os" 
+        register: docker_image_status
+
     - name: Download Nozomi Guardian Container files
+      when: docker_image_status.images | length == 0
       ansible.builtin.get_url:
         url: "{{ nozomi_container_source_http_protocol }}://{{ nozomi_container_source_http_server }}:{{ nozomi_container_source_http_port }}/{{ nozomi_container_source_http_path }}/{{ item.file }}"
         dest: "/tmp/{{ nozomi_container_source_http_path }}/{{ item.file }}"
@@ -144,7 +150,7 @@
       ansible.builtin.iptables:
         flush: yes
 
-    - name: Allow ICMP (ping) requests
+    - name: Allow ICMP (ping) requests on host interfaces
       ansible.builtin.iptables:
         chain: INPUT
         protocol: icmp
@@ -152,7 +158,7 @@
         jump: ACCEPT
         state: present
 
-    - name: Allow TCP traffic on SSH and HTTP/S port
+    - name: Allow SSH and the Nozomi webui traffic on host interfaces
       ansible.builtin.iptables:
         chain: INPUT
         protocol: tcp
@@ -162,28 +168,40 @@
         state: present
       loop:
         - { dstport: "{{ ssh_port }}" }
-        - { dstport: "{{ n2os_http_port }}" }
         - { dstport: "{{ n2os_https_port }}" }
-        - { dstport: "20943" }
-        - { dstport: "20443" }
 
-    - name: Allow UDP traffic on OpenVPN port
+    - name: Allow OpenVPN webui and TCP vpn traffic on host interfaces to docker0
       ansible.builtin.iptables:
-        chain: INPUT
+        chain: FORWARD
+        out_interface: docker0
+        protocol: tcp
+        destination_port: "{{ item.dstport }}"
+        ctstate: NEW,ESTABLISHED
+        jump: ACCEPT
+        state: present
+      loop:
+        - { dstport: "{{ ovpn_webui_port }}" }
+        - { dstport: "{{ ovpn_tcp_port }}" }
+
+    - name: Allow UDP VPN traffic on host interfaces to docker0
+      ansible.builtin.iptables:
+        chain: FORWARD
+        out_interface: docker0
         protocol: udp
-        destination_port: 21194
+        destination_port: "{{ ovpn_udp_port }}"
         ctstate: NEW,ESTABLISHED
         jump: ACCEPT
         state: present
 
-    - name: Docker host network allow firewall
+    - name: Allow connection replies from docker 0 to host interfaces
       ansible.builtin.iptables:
-        chain: INPUT
+        chain: FORWARD
         in_interface: docker0
+        ctstate: RELATED,ESTABLISHED
         jump: ACCEPT
         state: present
 
-    - name: Allow established and related connections
+    - name: Allow connection replies to host interfaces
       ansible.builtin.iptables:
         chain: INPUT
         ctstate: RELATED,ESTABLISHED
