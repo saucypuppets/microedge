@@ -67,6 +67,7 @@
         - { file: "LICENSE" }
 
     - name: Build Nozomi Guardian Docker image
+      when: docker_image_status.images | length == 0
       community.docker.docker_image_build:
         name: n2os
         path: "/tmp/{{ nozomi_container_source_http_path }}"
@@ -125,9 +126,9 @@
         image: openvpn/openvpn-as
         restart_policy: "always"
         ports:
-          - "20943:943"
-          - "20443:443"
-          - "21194:1194/udp"
+          - "{{ ovpn_webui_port_ext }}:{{ ovpn_webui_port_int }}"
+          - "{{ ovpn_tcp_port_ext }}:{{ ovpn_tcp_port_int }}"
+          - "{{ ovpn_udp_port_ext }}:{{ ovpn_udp_port_int }}"
         devices:
           - /dev/net/tun:/dev/net/tun
         capabilities:
@@ -178,15 +179,15 @@
         jump: ACCEPT
         state: present
       loop:
-        - { dstport: "{{ ovpn_webui_port }}" }
-        - { dstport: "{{ ovpn_tcp_port }}" }
+        - { dstport: "{{ ovpn_webui_port_int }}" }
+        - { dstport: "{{ ovpn_tcp_port_int }}" }
 
     - name: Allow UDP VPN traffic on host interfaces to docker0
       ansible.builtin.iptables:
         chain: FORWARD
         out_interface: docker0
         protocol: udp
-        destination_port: "{{ ovpn_udp_port }}"
+        destination_port: "{{ ovpn_udp_port_int }}"
         ctstate: NEW,ESTABLISHED
         jump: ACCEPT
         state: present

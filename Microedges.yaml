@@ -12,9 +12,12 @@ Micros:
     ansible_user: admin
     n2os_https_port: 10443
     ssh_port: 22
-    ovpn_webui_port: 20943
-    ovpn_tcp_port: 20443
-    ovpn_udp_port: 21194
+    ovpn_webui_port_ext: 20943
+    ovpn_tcp_port_ext: 20443
+    ovpn_udp_port_ext: 21194
+    ovpn_webui_port_int: 943
+    ovpn_tcp_port_int: 443
+    ovpn_udp_port_int: 1194
     nozomi_container_source_http_protocol: http
     nozomi_container_source_http_server: 192.168.1.237
     nozomi_container_source_http_port: 8000
