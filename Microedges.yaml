@@ -4,10 +4,7 @@ Micros:
       ansible_host: 192.168.1.238
       lan_interface: enp1s0
       wan_interface: enp2s0
-    ansibletest:
-      ansible_host: 192.168.1.239
-      lan_interface: ens19
-      wan_interface: ens18
+      wan_interface_VIP1_CIDR: 192.168.1.240/24
   vars:
     ansible_user: admin
     n2os_https_port: 10443
